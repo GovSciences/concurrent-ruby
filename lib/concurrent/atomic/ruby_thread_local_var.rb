@@ -29,8 +29,8 @@ module Concurrent
     #   array, so we don't leak memory
 
     # @!visibility private
-    FREE   = []
-    LOCK   = Mutex.new
+    FREE = []
+    LOCK = Mutex.new
     ARRAYS = {} # used as a hash set
     @@next = 0
     private_constant :FREE, :LOCK, :ARRAYS
@@ -72,9 +72,9 @@ module Concurrent
     def allocate_storage
       @index = LOCK.synchronize do
         FREE.pop || begin
-          result = @@next
-          @@next += 1
-          result
+        result = @@next
+        @@next += 1
+        result
         end
       end
       ObjectSpace.define_finalizer(self, self.class.threadlocal_finalizer(@index))
@@ -83,15 +83,13 @@ module Concurrent
     # @!visibility private
     def self.threadlocal_finalizer(index)
       proc do
-        Thread.new do # avoid error: can't be called from trap context
-          LOCK.synchronize do
-            FREE.push(index)
-            # The cost of GC'ing a TLV is linear in the number of threads using TLVs
-            # But that is natural! More threads means more storage is used per TLV
-            # So naturally more CPU time is required to free more storage
-            ARRAYS.each_value do |array|
-              array[index] = nil
-            end
+        LOCK.synchronize do
+          FREE.push(index)
+          # The cost of GC'ing a TLV is linear in the number of threads using TLVs
+          # But that is natural! More threads means more storage is used per TLV
+          # So naturally more CPU time is required to free more storage
+          ARRAYS.each_value do |array|
+            array[index] = nil
           end
         end
       end
@@ -100,12 +98,10 @@ module Concurrent
     # @!visibility private
     def self.thread_finalizer(array)
       proc do
-        Thread.new do # avoid error: can't be called from trap context
-          LOCK.synchronize do
-            # The thread which used this thread-local array is now gone
-            # So don't hold onto a reference to the array (thus blocking GC)
-            ARRAYS.delete(array.object_id)
-          end
+        LOCK.synchronize do
+          # The thread which used this thread-local array is now gone
+          # So don't hold onto a reference to the array (thus blocking GC)
+          ARRAYS.delete(array.object_id)
         end
       end
     end
